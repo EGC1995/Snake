@@ -1,173 +1,166 @@
+$(document).ready(function(){
+	//Canvas stuff
+	var canvas = $("#canvas")[0];
+	var ctx = canvas.getContext("2d");
+	var w = $("#canvas").width();
+	var h = $("#canvas").height();
 
-angular.module('ngSnake', [])
+	//Lets save the cell width in a variable for easy control
+	var cw = 10;
+	var d;
+	var food;
+	var score;
+   var level;
 
-  .controller('snakeCtrl', function($scope, $timeout, $window) {
-    var BOARD_SIZE = 20;
+	//Lets create the snake now
+	var snake_array; //an array of cells to make up the snake
 
-    var DIRECTIONS = {
-      LEFT: 37,
-      UP: 38,
-      RIGHT: 39,
-      DOWN: 40
-    };
+	function init()
+	{
+		d = "right"; //default direction
+		create_snake();
+		create_food(); //Now we can see the food particle
+		//finally lets display the score
+		score = 0;
+     level = 1;
 
-    var COLORS = {
-      GAME_OVER: '#820303',
-      FRUIT: '#E80505',
-      SNAKE_HEAD: '#078F00',
-      SNAKE_BODY: '#0DFF00',
-      BOARD: '#000'
-    };
+		//Lets move the snake now using a timer which will trigger the paint function
+		//every 60ms
+		if(typeof game_loop != "undefined") clearInterval(game_loop);
+		game_loop = setInterval(paint, 100);
+	}
+	init();
 
-    var snake = {
-      direction: DIRECTIONS.LEFT,
-      parts: [{
-        x: -1,
-        y: -1
-      }]
-    };
+	function create_snake()
+	{
+		var length = 5; //Length of the snake
+		snake_array = []; //Empty array to start with
+		for(var i = length-1; i>=0; i--)
+		{
+			//This will create a horizontal snake starting from the top left
+			snake_array.push({x: i, y:0});
+		}
+	}
 
-    var fruit = {
-      x: -1,
-      y: -1
-    };
+	//Lets create the food now
+	function create_food()
+	{
+		food = {
+			x: Math.round(Math.random()*(w-cw)/cw),
+			y: Math.round(Math.random()*(h-cw)/cw),
+		};
+		//This will create a cell with x/y between 0-44
+		//Because there are 45(450/10) positions accross the rows and columns
+	}
 
-    var interval, tempDirection, isGameOver;
+	//Lets paint the snake now
+	function paint()
+	{
+		//To avoid the snake trail we need to paint the BG on every frame
+		//Lets paint the canvas now
+		ctx.fillStyle = "white";
+		ctx.fillRect(0, 0, w, h);
+		ctx.strokeStyle = "black";
+		ctx.strokeRect(0, 0, w, h);
 
-    $scope.score = 0;
+		//The movement code for the snake to come here.
+		//The logic is simple
+		//Pop out the tail cell and place it infront of the head cell
+		var nx = snake_array[0].x;
+		var ny = snake_array[0].y;
+		//These were the position of the head cell.
+		//We will increment it to get the new head position
+		//Lets add proper direction based movement now
+		if(d == "right") nx++;
+		else if(d == "left") nx--;
+		else if(d == "up") ny--;
+		else if(d == "down") ny++;
 
-    $scope.setStyling = function(col, row) {
-      if (isGameOver)  {
-        return COLORS.GAME_OVER;
-      } else if (fruit.x == row && fruit.y == col) {
-        return COLORS.FRUIT;
-      } else if (snake.parts[0].x == row && snake.parts[0].y == col) {
-        return COLORS.SNAKE_HEAD;
-      } else if ($scope.board[col][row] === true) {
-        return COLORS.SNAKE_BODY;
-      }
-      return COLORS.BOARD;
-    };
+		//Lets add the game over clauses now
+		//This will restart the game if the snake hits the wall
+		//Lets add the code for body collision
+		//Now if the head of the snake bumps into its body, the game will restart
+		if(nx == -1 || nx == w/cw || ny == -1 || ny == h/cw || check_collision(nx, ny, snake_array))
+		{
+			//restart game
+			init();
+			//Lets organize the code a bit now.
+			return;
+		}
 
-    function update() {
-      var newHead = getNewHead();
+		//Lets write the code to make the snake eat the food
+		//The logic is simple
+		//If the new head position matches with that of the food,
+		//Create a new head instead of moving the tail
+		if(nx == food.x && ny == food.y)
+		{
+			var tail = {x: nx, y: ny};
+			score++;
 
-      if (boardCollision(newHead) || selfCollision(newHead)) {
-        return gameOver();
-      } else if (fruitCollision(newHead)) {
-        eatFruit();
-      }
+			//Create new food
+			create_food();
+		}
+		else
+		{
+			var tail = snake_array.pop(); //pops out the last cell
+			tail.x = nx; tail.y = ny;
+		}
+		//The snake can now eat the food.
 
-      // Remove tail
-      var oldTail = snake.parts.pop();
-      $scope.board[oldTail.y][oldTail.x] = false;
+		snake_array.unshift(tail); //puts back the tail as the first cell
 
-      // Pop tail to head
-      snake.parts.unshift(newHead);
-      $scope.board[newHead.y][newHead.x] = true;
+		for(var i = 0; i < snake_array.length; i++)
+		{
+			var c = snake_array[i];
+			//Lets paint 10px wide cells
+			paint_cell(c.x, c.y, "blue");
+		}
 
-      // Do it again
-      snake.direction = tempDirection;
-      $timeout(update, interval);
-    }
+		//Lets paint the food
+		paint_cell(food.x, food.y, "red");
+		//Lets paint the score
+		var score_text = "Score: " + score;
+     var level_text = "Level: " + level;
+		ctx.fillText(score_text, 5, h-5);
+     ctx.fillText(level_text, 60, h-5);
+	}
 
-    function getNewHead() {
-      var newHead = angular.copy(snake.parts[0]);
+	//Lets first create a generic function to paint cells
+	function paint_cell(x, y, color)
+	{
+		ctx.fillStyle = color;
+		ctx.fillRect(x*cw, y*cw, cw, cw);
+		ctx.strokeStyle = "white";
+		ctx.strokeRect(x*cw, y*cw, cw, cw);
+	}
 
-      // Update Location
-      if (tempDirection === DIRECTIONS.LEFT) {
-          newHead.x -= 1;
-      } else if (tempDirection === DIRECTIONS.RIGHT) {
-          newHead.x += 1;
-      } else if (tempDirection === DIRECTIONS.UP) {
-          newHead.y -= 1;
-      } else if (tempDirection === DIRECTIONS.DOWN) {
-          newHead.y += 1;
-      }
-      return newHead;
-    }
+	function check_collision(x, y, array)
+	{
+		//This function will check if the provided x/y coordinates exist
+		//in an array of cells or not
+		for(var i = 0; i < array.length; i++)
+		{
+			if(array[i].x == x && array[i].y == y)
+			 return true;
+		}
+		return false;
+	}
 
-    function boardCollision(part) {
-      return part.x === BOARD_SIZE || part.x === -1 || part.y === BOARD_SIZE || part.y === -1;
-    }
+	//Lets add the keyboard controls now
+	$(document).keydown(function(e){
+		var key = e.which;
+		//We will add another clause to prevent reverse gear
+		if(key == "37" && d != "right") d = "left";
+		else if(key == "38" && d != "down") d = "up";
+		else if(key == "39" && d != "left") d = "right";
+		else if(key == "40" && d != "up") d = "down";
+		//The snake is now keyboard controllable
+	})
 
-    function selfCollision(part) {
-      return $scope.board[part.y][part.x] === true;
-    }
 
-    function fruitCollision(part) {
-      return part.x === fruit.x && part.y === fruit.y;
-    }
 
-    function resetFruit() {
-      var x = Math.floor(Math.random() * BOARD_SIZE);
-      var y = Math.floor(Math.random() * BOARD_SIZE);
 
-      if ($scope.board[y][x] === true) {
-        return resetFruit();
-      }
-      fruit = {x: x, y: y};
-    }
 
-    function eatFruit() {
-      $scope.score++;
 
-      // Grow by 1
-      var tail = angular.copy(snake.parts[snake.parts.length-1]);
-      snake.parts.push(tail);
-      resetFruit();
 
-      if ($scope.score % 5 === 0) {
-        interval -= 15;
-      }
-    }
-
-    function gameOver() {
-      isGameOver = true;
-
-      $timeout(function() {
-        isGameOver = false;
-      },500);
-
-      setupBoard();
-    }
-
-    function setupBoard() {
-      $scope.board = [];
-      for (var i = 0; i < BOARD_SIZE; i++) {
-        $scope.board[i] = [];
-        for (var j = 0; j < BOARD_SIZE; j++) {
-          $scope.board[i][j] = false;
-        }
-      }
-    }
-    setupBoard();
-
-    $window.addEventListener("keyup", function(e) {
-      if (e.keyCode == DIRECTIONS.LEFT && snake.direction !== DIRECTIONS.RIGHT) {
-        tempDirection = DIRECTIONS.LEFT;
-      } else if (e.keyCode == DIRECTIONS.UP && snake.direction !== DIRECTIONS.DOWN) {
-        tempDirection = DIRECTIONS.UP;
-      } else if (e.keyCode == DIRECTIONS.RIGHT && snake.direction !== DIRECTIONS.LEFT) {
-        tempDirection = DIRECTIONS.RIGHT;
-      } else if (e.keyCode == DIRECTIONS.DOWN && snake.direction !== DIRECTIONS.UP) {
-        tempDirection = DIRECTIONS.DOWN;
-      }
-    });
-
-    $scope.startGame = function() {
-      $scope.score = 0;
-      snake = {direction: DIRECTIONS.LEFT, parts: []};
-      tempDirection = DIRECTIONS.LEFT;
-      isGameOver = false;
-      interval = 150;
-
-      // Set up initial snake
-      for (var i = 0; i < 5; i++) {
-        snake.parts.push({x: 10 + i, y: 10});
-      }
-      resetFruit();
-      update();
-    };
-
-  });
+})
