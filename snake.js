@@ -10,7 +10,6 @@ $(document).ready(function(){
 	var d;
 	var food;
 	var score;
-   var level;
 
 	//Lets create the snake now
 	var snake_array; //an array of cells to make up the snake
@@ -22,12 +21,11 @@ $(document).ready(function(){
 		create_food(); //Now we can see the food particle
 		//finally lets display the score
 		score = 0;
-     level = 1;
 
 		//Lets move the snake now using a timer which will trigger the paint function
 		//every 60ms
 		if(typeof game_loop != "undefined") clearInterval(game_loop);
-		game_loop = setInterval(paint, 100);
+		game_loop = setInterval(paint, 60);
 	}
 	init();
 
@@ -96,7 +94,6 @@ $(document).ready(function(){
 		{
 			var tail = {x: nx, y: ny};
 			score++;
-
 			//Create new food
 			create_food();
 		}
@@ -113,22 +110,20 @@ $(document).ready(function(){
 		{
 			var c = snake_array[i];
 			//Lets paint 10px wide cells
-			paint_cell(c.x, c.y, "blue");
+			paint_cell(c.x, c.y);
 		}
 
 		//Lets paint the food
-		paint_cell(food.x, food.y, "red");
+		paint_cell(food.x, food.y);
 		//Lets paint the score
 		var score_text = "Score: " + score;
-     var level_text = "Level: " + level;
 		ctx.fillText(score_text, 5, h-5);
-     ctx.fillText(level_text, 60, h-5);
 	}
 
 	//Lets first create a generic function to paint cells
-	function paint_cell(x, y, color)
+	function paint_cell(x, y)
 	{
-		ctx.fillStyle = color;
+		ctx.fillStyle = "blue";
 		ctx.fillRect(x*cw, y*cw, cw, cw);
 		ctx.strokeStyle = "white";
 		ctx.strokeRect(x*cw, y*cw, cw, cw);
